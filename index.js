@@ -92,6 +92,10 @@ app.get("/health", (req, res) => {
 // Demo error endpoints
 // ------------------------------------
 
+const users = new Map([
+  ["demo", { profile: { name: "Demo User" } }],
+]);
+
 app.get("/demo/errors/database-timeout", (req, res, next) => {
   const error = new Error(
     "Database connection timeout after 5000ms"
@@ -103,21 +107,11 @@ app.get("/demo/errors/database-timeout", (req, res, next) => {
   next(error);
 });
 
-app.get("/demo/errors/null-reference", (req, res, next) => {
-  try {
-    const user = null;
+app.get("/demo/errors/null-reference", (req, res) => {
+  const userId = String(req.query.userId || "demo");
+  const user = users.get(userId);
 
-    // Intentionally generating a TypeError
-    user.profile.name;
-
-    res.json({ success: true });
-
-  } catch (error) {
-    error.code = "USER_NULL_REFERENCE";
-    error.statusCode = 500;
-
-    next(error);
-  }
+  res.json({ success: true, name: user.profile.name });
 });
 
 app.get("/demo/errors/payment-failure", (req, res, next) => {
