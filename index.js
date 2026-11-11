@@ -3,6 +3,7 @@ import "dotenv/config";
 
 import express from "express";
 import { randomUUID } from "node:crypto";
+import { pathToFileURL } from "node:url";
 
 import {
   CloudWatchLogsClient,
@@ -14,19 +15,13 @@ import {
 // Configuration
 // ------------------------------------
 
-const app = express();
+export const app = express();
 
 app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 const REGION = process.env.AWS_REGION;
 const LOG_GROUP = process.env.CLOUDWATCH_LOG_GROUP;
-
-if (!REGION || !LOG_GROUP) {
-  throw new Error(
-    "AWS_REGION and CLOUDWATCH_LOG_GROUP are required"
-  );
-}
 
 const cloudWatch = new CloudWatchLogsClient({
   region: REGION
@@ -111,6 +106,13 @@ app.get("/demo/errors/null-reference", (req, res) => {
   const userId = String(req.query.userId || "demo");
   const user = users.get(userId);
 
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: "User not found"
+    });
+  }
+
   res.json({ success: true, name: user.profile.name });
 });
 
@@ -153,18 +155,20 @@ app.use(async (err, req, res, next) => {
   console.error(JSON.stringify(errorLog, null, 2));
 
   // CloudWatch logging
-  try {
-    await sendToCloudWatch(errorLog);
+  if (LOG_GROUP) {
+    try {
+      await sendToCloudWatch(errorLog);
 
-    console.log(
-      `Successfully sent error to CloudWatch. Request ID: ${requestId}`
-    );
+      console.log(
+        `Successfully sent error to CloudWatch. Request ID: ${requestId}`
+      );
 
-  } catch (cloudWatchError) {
-    console.error(
-      "CloudWatch logging failed:",
-      cloudWatchError
-    );
+    } catch (cloudWatchError) {
+      console.error(
+        "CloudWatch logging failed:",
+        cloudWatchError
+      );
+    }
   }
 
   // API response
@@ -182,6 +186,10 @@ app.use(async (err, req, res, next) => {
 
 async function startServer() {
   try {
+    if (!REGION || !LOG_GROUP) {
+      throw new Error("AWS_REGION and CLOUDWATCH_LOG_GROUP are required");
+    }
+
     await initializeCloudWatch();
 
     app.listen(PORT, () => {
@@ -198,4 +206,6 @@ async function startServer() {
   }
 }
 
-startServer();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  startServer();
+}
