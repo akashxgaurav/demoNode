@@ -106,13 +106,6 @@ app.get("/demo/errors/null-reference", (req, res) => {
   const userId = String(req.query.userId || "demo");
   const user = users.get(userId);
 
-  if (!user) {
-    return res.status(404).json({
-      success: false,
-      message: "User not found"
-    });
-  }
-
   res.json({ success: true, name: user.profile.name });
 });
 
